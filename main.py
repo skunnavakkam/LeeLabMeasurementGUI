@@ -1,12 +1,14 @@
-import rich
 import os
 import re
 import visa
 import datetime
 import sys
-import tqdm
 from API.smu2450 import API as smuAPI
+from API.AQ6374 import OSA as osaAPI
+import time
+import pandas as pd
 
+DELAY = 1
 
 # helpers
 def format_voltage_input(input_str: str) -> float:
@@ -31,11 +33,24 @@ def format_current_input(input_str: str) -> float:
     
 
 def format_voltage_output(voltage: float) -> str:
-    return voltage
+    if voltage >= 1:
+        return f"{round(voltage, 6)}V"
+    elif voltage >= 1e-3:
+        return f"{round(voltage*1e3, 6)}mV"
+    elif voltage >= 1e-6:
+        return f"{round(voltage*1e6, 6)}uV"
+    else:
+        return f"{round(voltage*1e9, 6)}nV"
 
 def format_current_output(current: float) -> str:
-    return current
-
+    if current >= 1:
+        return f"{round(current, 6)}A"
+    elif current >= 1e-3:
+        return f"{round(current*1e3, 6)}mA"
+    elif current >= 1e-6:
+        return f"{round(current*1e6, 6)}uA"
+    else:
+        return f"{round(current*1e9, 6)}nA"
 
 # Keithely Functions
 
@@ -91,24 +106,41 @@ Current limit: {format_current_output(current_limit)}''')
     smu.set_current_limit_mA(current_limit*1e3)
     smu.set_source_voltage()
 
+    # OSA
+    osa = osaAPI()
+    if osa.discover_and_connect() is False:
+        print("AQ6374 is not connected. Killing run")
+        raise Exception("No OSA found")
+    osa.wavelength_range(1520, 1580)
+
 
     print("")
     print("Starting Sweep...")
     dir_string = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     # os.mkdir(dir_string)
     print(f"Saving in directory {dir_string}")
+    print("")
 
     vrange = max_voltage - min_voltage
     voltage_list = []
     current_list = []
-    for step in tqdm(range(number_of_steps)):
+    for step in range(number_of_steps):
+
+        status_strings = ["Fabricating ITO...", "Taking N & K measurements...", "Publishing in Nature...", "Stepping on the Nobel Prize stage...:",
+                          "Rejected because I'm a robot", "Complaining on Twitter", "Going to sleep", "Waking up", "Coming to the lab again"]
+        if step % 10 == 0:
+            sys.stdout.write("\033[F")
+            sys.stdout.write("\033[K")
+            sys.stdout.write(f"(Step {step}/{number_of_steps}) {status_strings[step % len(status_strings)]}")
+
         curr_voltage = min_voltage + (vrange / number_of_steps)
         voltage_list.append(curr_voltage)
         smu.set_voltage(curr_voltage)
-
-
-    
-
-    
-
-        
+        curr_current = smu.read_current()
+        current_list.append(curr_current)
+        time.sleep(DELAY)
+        wavelength, power = osa.do_sweep()
+        # create a pandas dataframe with wavelength on the left column and power on the write
+        # save the dataframe as a csv file
+        data = pd.DataFrame({'Wavelength': wavelength, 'Power': power})
+        data.to_csv(f"{dir_string}/{format_voltage_output(curr_voltage)}_at_{format_current_output(curr_current)}", index=False)

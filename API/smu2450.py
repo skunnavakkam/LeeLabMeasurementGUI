@@ -108,7 +108,7 @@ class API():
 
     def set_voltage(self, volt):
         ''' Set voltage '''
-        print("Voltage set to " + str(volt) + "V")
+        # print("Voltage set to " + str(volt) + "V")
         self.write("SOUR:VOLT " + str(volt))
 
     def set_current_range_auto(self):
@@ -208,6 +208,9 @@ class API():
 
     def set_source_voltage(self):
         self.write(':SOUR:FUNC VOLT')
+        self.write("SENS:FUNC 'CURR'")
+        self.write("SENS:CURR:RANG AUTO")
+        self.write("SENS:CURR:UNIT OHM")
 
     def set_current_drain_microamp(self, micro):
         self.write(':SOUR:CURR {amps}'.format(amps = micro/1e6 * -1))
@@ -216,3 +219,8 @@ class API():
         ''' Returns voltage as string with 3 decimals '''
         voltage = (self.write(':READ?'))
         return ('{voltage:.3g}'.format(voltage=float(voltage)))
+    
+    def read_current(self): 
+        ''' Returns current as string with 3 decimals '''
+        current = (self.write(':READ?'))
+        return (float(current))

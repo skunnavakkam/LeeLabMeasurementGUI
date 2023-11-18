@@ -48,6 +48,7 @@ class OSA():
         center_wavelength = (wavelength_start + wavelength_end) / 2
         wavelength_span = wavelength_end - wavelength_start
 
+        self.osa.write(f":TRAC:ACTive TRA")
         self.osa.write(f":SENS:WAV:STAR {wavelength_start};STOP {wavelength_end}NM")
         self.osa.write(":sens:sweep:points:auto on")
     
@@ -62,6 +63,13 @@ class OSA():
             time.sleep(0.01)
             status_response = self.osa.query_ascii_values(":stat:oper:even?")[0]
             sweep_status = int(status_response)
+
+        data_x = self.osa.query_ascii_values("TRAC:X? TRA")
+        data_y = self.osa.query_ascii_values("TRAC:Y? TRA")
+
+        return (data_x, data_y)
+
+        
 
     
     
